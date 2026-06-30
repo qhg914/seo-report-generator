@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEO Report Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  :root {
+    --primary: #1a56db;
+    --primary-dark: #1e429f;
+    --success: #057a55;
+    --danger: #c81e1e;
+    --success-bg: #f3faf7;
+    --danger-bg: #fdf2f2;
+    --success-light: #def7ec;
+    --danger-light: #fde8e8;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-700: #374151;
+    --gray-900: #111827;
+    --border-radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #eef2f7; color: var(--gray-900); font-size: 14px; }
+
+  /* ===== LAYOUT ===== */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: 420px; min-width: 380px; background: white; border-right: 1px solid var(--gray-200); overflow-y: auto; display: flex; flex-direction: column; }
+  .preview-panel { flex: 1; overflow-y: auto; background: #dde3ed; padding: 24px; }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar-header { padding: 20px 24px; background: var(--primary); color: white; position: sticky; top: 0; z-index: 10; }
+  .sidebar-header h1 { font-size: 18px; font-weight: 700; }
+  .sidebar-header p { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+  .form-sections { padding: 20px; flex: 1; }
+  .form-section { margin-bottom: 20px; }
+  .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--primary); background: #eff6ff; border-left: 3px solid var(--primary); padding: 6px 10px; border-radius: 0 4px 4px 0; margin-bottom: 12px; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .form-row.single { grid-template-columns: 1fr; }
+  .form-group { display: flex; flex-direction: column; }
+  .form-group label { font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .form-group input, .form-group select, .form-group textarea {
+    border: 1px solid var(--gray-300); border-radius: 6px; padding: 7px 10px;
+    font-size: 13px; color: var(--gray-900); background: white; transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+  }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+
+  /* Keyword table in form */
+  .keyword-table-wrap { border: 1px solid var(--gray-200); border-radius: 6px; overflow: hidden; }
+  .keyword-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .keyword-table th { background: var(--gray-100); padding: 6px 8px; text-align: left; font-weight: 600; color: var(--gray-500); font-size: 11px; }
+  .keyword-table td { padding: 4px 6px; border-top: 1px solid var(--gray-100); }
+  .keyword-table td input { border: 1px solid var(--gray-200); border-radius: 4px; padding: 4px 6px; width: 100%; font-size: 12px; font-family: inherit; }
+  .keyword-table td input:focus { outline: none; border-color: var(--primary); }
+  .btn-add-row { margin-top: 8px; font-size: 12px; color: var(--primary); background: none; border: 1px dashed var(--primary); border-radius: 6px; padding: 5px 12px; cursor: pointer; width: 100%; }
+  .btn-add-row:hover { background: #eff6ff; }
+  .btn-del-row { background: none; border: none; color: var(--gray-400); cursor: pointer; padding: 2px 6px; font-size: 14px; }
+  .btn-del-row:hover { color: var(--danger); }
+
+  /* Actions */
+  .sidebar-actions { padding: 16px 20px; border-top: 1px solid var(--gray-200); display: flex; gap: 10px; position: sticky; bottom: 0; background: white; }
+  .btn-primary { flex: 1; background: var(--primary); color: white; border: none; border-radius: 8px; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary { flex: 1; background: white; color: var(--gray-700); border: 1px solid var(--gray-300); border-radius: 8px; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .btn-secondary:hover { background: var(--gray-50); }
+
+  /* ===== REPORT (PREVIEW) ===== */
+  .report-wrapper { max-width: 860px; margin: 0 auto; }
+  .report { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+
+  /* Report Header */
+  .report-header { background: linear-gradient(135deg, #1a56db 0%, #1e3a8a 100%); color: white; padding: 40px 48px; position: relative; overflow: hidden; }
+  .report-header::before { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: rgba(255,255,255,0.05); }
+  .report-header::after { content: ''; position: absolute; right: 40px; bottom: -80px; width: 160px; height: 160px; border-radius: 50%; background: rgba(255,255,255,0.07); }
+  .report-badge { display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 12px; border-radius: 100px; margin-bottom: 16px; }
+  .report-title { font-size: 28px; font-weight: 800; line-height: 1.2; margin-bottom: 8px; }
+  .report-subtitle { font-size: 14px; opacity: 0.8; }
+  .report-meta { margin-top: 24px; display: flex; gap: 32px; }
+  .report-meta-item { display: flex; flex-direction: column; }
+  .report-meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.6; margin-bottom: 2px; }
+  .report-meta-value { font-size: 13px; font-weight: 600; }
+
+  /* Report Body */
+  .report-body { padding: 40px 48px; }
+
+  /* Section */
+  .report-section { margin-bottom: 36px; }
+  .report-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 6px; }
+
+  /* Metric Cards */
+  .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .metric-card { border: 1px solid var(--gray-200); border-radius: 10px; padding: 18px 20px; position: relative; overflow: hidden; }
+  .metric-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--primary); }
+  .metric-card.up::before { background: var(--success); }
+  .metric-card.down::before { background: var(--danger); }
+  .metric-icon { font-size: 20px; margin-bottom: 8px; }
+  .metric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 4px; }
+  .metric-value { font-size: 28px; font-weight: 800; color: var(--gray-900); line-height: 1; }
+  .metric-change { margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 100px; }
+  .metric-change.up { background: var(--success-light); color: var(--success); }
+  .metric-change.down { background: var(--danger-light); color: var(--danger); }
+  .metric-change.neutral { background: var(--gray-100); color: var(--gray-500); }
+  .metric-prev { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+
+  /* Chart area */
+  .chart-container { position: relative; height: 180px; margin-top: 12px; }
+
+  /* Keyword Table (report) */
+  .report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .report-table thead tr { background: var(--gray-50); }
+  .report-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); border-bottom: 1px solid var(--gray-200); }
+  .report-table td { padding: 10px 14px; border-bottom: 1px solid var(--gray-100); }
+  .report-table tbody tr:hover { background: var(--gray-50); }
+  .rank-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; padding: 2px 8px; border-radius: 100px; font-size: 12px; font-weight: 700; }
+  .rank-top3 { background: #fef9c3; color: #854d0e; }
+  .rank-top10 { background: #dcfce7; color: #166534; }
+  .rank-top20 { background: #dbeafe; color: #1e40af; }
+  .rank-other { background: var(--gray-100); color: var(--gray-600); }
+  .rank-change { font-size: 12px; font-weight: 700; }
+  .rank-change.up { color: var(--success); }
+  .rank-change.down { color: var(--danger); }
+  .rank-change.same { color: var(--gray-400); }
+
+  /* Summary box */
+  .summary-box { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 10px; padding: 20px; }
+  .summary-box p { font-size: 13px; line-height: 1.7; color: var(--gray-700); white-space: pre-wrap; }
+
+  /* Footer */
+  .report-footer { background: var(--gray-900); color: white; padding: 20px 48px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+  .report-footer a { color: rgba(255,255,255,0.6); }
+
+  /* Divider */
+  .report-divider { height: 1px; background: var(--gray-100); margin: 8px 0 24px; }
+
+  /* Progress bar */
+  .progress-bar { height: 6px; background: var(--gray-100); border-radius: 100px; overflow: hidden; margin-top: 4px; }
+  .progress-fill { height: 100%; border-radius: 100px; background: var(--primary); transition: width 0.4s; }
+
+  /* Backlink row */
+  .backlink-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .backlink-stat { text-align: center; background: var(--gray-50); border-radius: 8px; padding: 14px 10px; border: 1px solid var(--gray-200); }
+  .backlink-stat .value { font-size: 22px; font-weight: 800; color: var(--gray-900); }
+  .backlink-stat .label { font-size: 11px; color: var(--gray-500); margin-top: 4px; font-weight: 600; }
+
+  /* PDF print fixes */
+  @media print {
+    body { background: white; }
+    .app { display: block; height: auto; }
+    .sidebar { display: none; }
+    .preview-panel { background: white; padding: 0; }
+    .report { box-shadow: none; border-radius: 0; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ===== SIDEBAR FORM ===== -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>SEO Report Generator</h1>
+      <p>Nhập số liệu → Xem preview → Xuất PDF</p>
+    </div>
+
+    <div class="form-sections">
+      <!-- 1. Thông tin chung -->
+      <div class="form-section">
+        <div class="section-title">📋 Thông tin dự án</div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Tên khách hàng / Dự án</label>
+            <input type="text" id="projectName" placeholder="VD: Công ty ABC" oninput="update()">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>URL Website</label>
+            <input type="text" id="projectUrl" placeholder="https://example.com" oninput="update()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Loại kỳ báo cáo</label>
+            <select id="reportType" onchange="update()">
+              <option value="weekly">Tuần</option>
+              <option value="monthly" selected>Tháng</option>
+              <option value="quarterly">Quý</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tên kỳ báo cáo</label>
+            <input type="text" id="reportPeriodLabel" placeholder="VD: Tháng 06/2026" oninput="update()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Từ ngày</label>
+            <input type="date" id="dateFrom" oninput="update()">
+          </div>
+          <div class="form-group">
+            <label>Đến ngày</label>
+            <input type="date" id="dateTo" oninput="update()">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Người thực hiện (Agency)</label>
+            <input type="text" id="agencyName" placeholder="VD: Seongon SEO Agency" oninput="update()">
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Traffic -->
+      <div class="form-section">
+        <div class="section-title">📈 Traffic (Google Search Console)</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Clicks kỳ này</label>
+            <input type="number" id="clicksCurr" placeholder="0" min="0" oninput="update()">
+          </div>
+          <div class="form-group">
+            <label>Clicks kỳ trước</label>
+            <input type="number" id="clicksPrev" placeholder="0" min="0" oninput="update()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Impressions kỳ này</label>
+            <input type="number" id="impCurr" placeholder="0" min="0" oninput="update()">
+          </div>
+          <div class="form-group">
+            <label>Impressions kỳ trước</label>
+            <input type="number" id="impPrev" placeholder="0" min="0" oninput="update()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>CTR kỳ này (%)</label>
+            <input type="number" id="ctrCurr" placeholder="0.0" step="0.01" oninput="update()">
+          </div>
+          <div class="form-group">
+            <label>CTR kỳ trước (%)</label>
+            <input type="number" id="ctrPrev" placeholder="0.0" step="0.01" oninput="update()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Vị trí TB kỳ này</label>
+            <input type="number" id="posCurr" placeholder="0.0" step="0.1" oninput="update()">
+          </div>
+          <div class="form-group">
+            <label>Vị trí TB kỳ trước</label>
+            <input type="number" id="posPrev" placeholder="0.0" step="0.1" oninput="update()">
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="section-title" style="font-size:10px; margin-bottom:8px">Dữ liệu biểu đồ clicks (tuần / tháng)</div>
+          <div class="form-group">
+            <label>Nhãn (cách nhau bởi dấu phẩy)</label>
+            <input type="text" id="chartLabels" placeholder="T1,T2,T3,T4,T5,T6" oninput="update()">
+          </div>
+          <div class="form-group" style="margin-top:8px">
+            <label>Clicks (cách nhau bởi dấu phẩy)</label>
+            <input type="text" id="chartClicks" placeholder="120,145,138,162,170,155" oninput="update()">
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Từ khóa -->
+      <div class="form-section">
+        <div class="section-title">🔑 Từ khóa</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tổng TK theo dõi</label>
+            <input type="number" id="kwTotal" placeholder="0" min="0" oninput="update()">
+          </div>
+          <div class="form-group">
+            <label>TK top 10 kỳ này</label>
+            <input type="number" id="kwTop10" placeholder="0" min="0" oninput="update()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>TK top 10 kỳ trước</label>
+            <input type="number" id="kwTop10Prev" placeholder="0" min="0" oninput="update()">
+          </div>
+          <div class="form-group">
+            <label>TK top 3 kỳ này</label>
+            <input type="number" id="kwTop3" placeholder="0" min="0" oninput="update()">
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div class="section-title" style="margin-bottom:0;font-size:10px">Chi tiết từ khóa</div>
+          </div>
+          <div class="keyword-table-wrap">
+            <table class="keyword-table">
+              <thead>
+                <tr>
+                  <th>Từ khóa</th>
+                  <th>Hạng hiện tại</th>
+                  <th>Hạng trước</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="kwTableBody"></tbody>
+            </table>
+          </div>
+          <button class="btn-add-row" onclick="addKwRow()">+ Thêm từ khóa</button>
+        </div>
+      </div>
+
+      <!-- 4. Backlink -->
+      <div class="form-section">
+        <div class="section-title">🔗 Backlink</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tổng BL kỳ này</label>
+            <input type="number" id="blTotal" placeholder="0" min="0" oninput="update()">
+          </div>
+          <div class="form-group">
+            <label>Tổng BL kỳ trước</label>
+            <input type="number" id="blPrev" placeholder="0" min="0" oninput="update()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>BL mới thêm</label>
+            <input type="number" id="blNew" placeholder="0" min="0" oninput="update()">
+          </div>
+          <div class="form-group">
+            <label>BL bị mất</label>
+            <input type="number" id="blLost" placeholder="0" min="0" oninput="update()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Domain Authority (DA)</label>
+            <input type="number" id="blDA" placeholder="0" min="0" max="100" oninput="update()">
+          </div>
+          <div class="form-group">
+            <label>Referring Domains</label>
+            <input type="number" id="blDomains" placeholder="0" min="0" oninput="update()">
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Nhận xét -->
+      <div class="form-section">
+        <div class="section-title">📝 Nhận xét & Đề xuất</div>
+        <div class="form-group">
+          <label>Tóm tắt tổng quan</label>
+          <textarea id="summaryText" rows="3" placeholder="Nhập nhận xét tổng quan về hiệu suất SEO trong kỳ này..." oninput="update()"></textarea>
+        </div>
+        <div class="form-group" style="margin-top:8px">
+          <label>Công việc đã thực hiện</label>
+          <textarea id="workDone" rows="3" placeholder="VD: Tối ưu on-page 10 bài viết, xây dựng 5 backlink chất lượng..." oninput="update()"></textarea>
+        </div>
+        <div class="form-group" style="margin-top:8px">
+          <label>Kế hoạch kỳ tới</label>
+          <textarea id="planNext" rows="3" placeholder="VD: Tiếp tục xây dựng backlink, tối ưu tốc độ tải trang..." oninput="update()"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-actions">
+      <button class="btn-secondary" onclick="clearForm()">Xóa form</button>
+      <button class="btn-primary" onclick="exportPDF()">⬇ Xuất PDF</button>
+    </div>
+  </div>
+
+  <!-- ===== REPORT PREVIEW ===== -->
+  <div class="preview-panel">
+    <div class="report-wrapper">
+      <div class="report" id="report">
+        <!-- Header -->
+        <div class="report-header">
+          <div class="report-badge" id="rBadge">BÁO CÁO THÁNG</div>
+          <div class="report-title" id="rTitle">Báo cáo SEO — <span id="rPeriod">Tháng XX/XXXX</span></div>
+          <div class="report-subtitle" id="rUrl">Website: —</div>
+          <div class="report-meta">
+            <div class="report-meta-item">
+              <span class="report-meta-label">Khách hàng</span>
+              <span class="report-meta-value" id="rClient">—</span>
+            </div>
+            <div class="report-meta-item">
+              <span class="report-meta-label">Khoảng thời gian</span>
+              <span class="report-meta-value" id="rDateRange">—</span>
+            </div>
+            <div class="report-meta-item">
+              <span class="report-meta-label">Thực hiện bởi</span>
+              <span class="report-meta-value" id="rAgency">—</span>
+            </div>
+            <div class="report-meta-item">
+              <span class="report-meta-label">Ngày xuất báo cáo</span>
+              <span class="report-meta-value" id="rGenDate">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div class="report-body">
+
+          <!-- Traffic Section -->
+          <div class="report-section">
+            <div class="report-section-title">📈 Hiệu suất Traffic</div>
+            <div class="metric-grid">
+              <div class="metric-card" id="mcClicks">
+                <div class="metric-icon">👆</div>
+                <div class="metric-label">Clicks</div>
+                <div class="metric-value" id="rClicks">—</div>
+                <span class="metric-change neutral" id="rClicksChange">—</span>
+                <div class="metric-prev" id="rClicksPrev"></div>
+              </div>
+              <div class="metric-card" id="mcImp">
+                <div class="metric-icon">👁</div>
+                <div class="metric-label">Impressions</div>
+                <div class="metric-value" id="rImp">—</div>
+                <span class="metric-change neutral" id="rImpChange">—</span>
+                <div class="metric-prev" id="rImpPrev"></div>
+              </div>
+              <div class="metric-card" id="mcCtr">
+                <div class="metric-icon">🎯</div>
+                <div class="metric-label">CTR Trung bình</div>
+                <div class="metric-value" id="rCtr">—</div>
+                <span class="metric-change neutral" id="rCtrChange">—</span>
+                <div class="metric-prev" id="rCtrPrev"></div>
+              </div>
+              <div class="metric-card" id="mcPos">
+                <div class="metric-icon">📍</div>
+                <div class="metric-label">Vị trí TB</div>
+                <div class="metric-value" id="rPos">—</div>
+                <span class="metric-change neutral" id="rPosChange">—</span>
+                <div class="metric-prev" id="rPosPrev"></div>
+              </div>
+            </div>
+
+            <!-- Chart -->
+            <div style="margin-top:20px; border:1px solid var(--gray-200); border-radius:10px; padding:16px;">
+              <div style="font-size:12px;font-weight:700;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Biểu đồ Clicks theo thời gian</div>
+              <div class="chart-container">
+                <canvas id="clicksChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Keyword Section -->
+          <div class="report-section">
+            <div class="report-section-title">🔑 Hiệu suất Từ khóa</div>
+            <div class="metric-grid" style="grid-template-columns: repeat(4,1fr); gap:12px; margin-bottom:20px;">
+              <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:22px;font-weight:800;color:var(--gray-900)" id="rKwTotal">—</div>
+                <div style="font-size:11px;color:var(--gray-500);margin-top:4px;font-weight:600;">Tổng TK</div>
+              </div>
+              <div style="background:#fefce8;border:1px solid #fef08a;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:22px;font-weight:800;color:#854d0e" id="rKwTop3">—</div>
+                <div style="font-size:11px;color:#92400e;margin-top:4px;font-weight:600;">Top 3</div>
+              </div>
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:22px;font-weight:800;color:#166534" id="rKwTop10">—</div>
+                <div style="font-size:11px;color:#166534;margin-top:4px;font-weight:600;">Top 10 <span id="rKwTop10Change" style="font-size:10px"></span></div>
+              </div>
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:22px;font-weight:800;color:#1e40af" id="rKwPct">—</div>
+                <div style="font-size:11px;color:#1e40af;margin-top:4px;font-weight:600;">% Top 10</div>
+              </div>
+            </div>
+            <table class="report-table" id="rKwTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Từ khóa</th>
+                  <th>Hạng hiện tại</th>
+                  <th>Hạng kỳ trước</th>
+                  <th>Biến động</th>
+                </tr>
+              </thead>
+              <tbody id="rKwBody"></tbody>
+            </table>
+            <div id="rKwEmpty" style="text-align:center;color:var(--gray-400);padding:20px;font-size:13px;">Chưa có dữ liệu từ khóa</div>
+          </div>
+
+          <!-- Backlink Section -->
+          <div class="report-section">
+            <div class="report-section-title">🔗 Hiệu suất Backlink</div>
+            <div class="backlink-stats">
+              <div class="backlink-stat">
+                <div class="value" id="rBlTotal">—</div>
+                <div class="label">Tổng Backlinks</div>
+                <div id="rBlChange" style="margin-top:4px;font-size:12px"></div>
+              </div>
+              <div class="backlink-stat">
+                <div class="value" id="rBlDomains">—</div>
+                <div class="label">Referring Domains</div>
+              </div>
+              <div class="backlink-stat">
+                <div class="value" id="rBlDA">—</div>
+                <div class="label">Domain Authority</div>
+                <div style="margin-top:4px"><div class="progress-bar"><div class="progress-fill" id="rBlDABar" style="width:0%"></div></div></div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;">
+                <span style="font-size:24px">🟢</span>
+                <div>
+                  <div style="font-size:20px;font-weight:800;color:#166534" id="rBlNew">—</div>
+                  <div style="font-size:11px;color:#166534;font-weight:600;">Backlink mới</div>
+                </div>
+              </div>
+              <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;">
+                <span style="font-size:24px">🔴</span>
+                <div>
+                  <div style="font-size:20px;font-weight:800;color:#991b1b" id="rBlLost">—</div>
+                  <div style="font-size:11px;color:#991b1b;font-weight:600;">Backlink mất</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notes Section -->
+          <div class="report-section" id="sectionNotes">
+            <div class="report-section-title">📝 Nhận xét & Kế hoạch</div>
+            <div id="rSummaryBox" style="display:none">
+              <div style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Tổng quan</div>
+              <div class="summary-box"><p id="rSummary"></p></div>
+              <div class="report-divider"></div>
+            </div>
+            <div id="rWorkDoneBox" style="display:none">
+              <div style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Công việc đã thực hiện</div>
+              <div class="summary-box"><p id="rWorkDone"></p></div>
+              <div class="report-divider"></div>
+            </div>
+            <div id="rPlanBox" style="display:none">
+              <div style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Kế hoạch kỳ tới</div>
+              <div class="summary-box"><p id="rPlanNext"></p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="report-footer">
+          <span id="rFooterLeft">SEO Report — Confidential</span>
+          <span id="rFooterRight">© 2026 — Tạo bởi SEO Report Generator</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let kwRows = [];
+let clicksChart = null;
+let chartInitialized = false;
+
+// ===== HELPERS =====
+function fmt(n) { return n == null || n === '' ? '—' : Number(n).toLocaleString('vi-VN'); }
+function fmtPct(n) { return n == null || n === '' ? '—' : Number(n).toFixed(2) + '%'; }
+function fmtPos(n) { return n == null || n === '' ? '—' : Number(n).toFixed(1); }
+
+function calcChange(curr, prev) {
+  curr = parseFloat(curr); prev = parseFloat(prev);
+  if (isNaN(curr) || isNaN(prev) || prev === 0) return null;
+  return ((curr - prev) / Math.abs(prev)) * 100;
+}
+
+function changeLabel(pct, invert = false) {
+  if (pct === null) return { text: '—', cls: 'neutral' };
+  const up = invert ? pct < 0 : pct > 0;
+  const arrow = pct > 0 ? '▲' : pct < 0 ? '▼' : '▶';
+  const sign = pct > 0 ? '+' : '';
+  return {
+    text: `${arrow} ${sign}${pct.toFixed(1)}%`,
+    cls: pct === 0 ? 'neutral' : up ? 'up' : 'down'
+  };
+}
+
+function setMetric(id, mcId, val, change, prevText, invert = false) {
+  document.getElementById(id).textContent = val === '—' ? '—' : val;
+  const el = document.getElementById(id + 'Change');
+  const mc = document.getElementById(mcId);
+  const lbl = changeLabel(change, invert);
+  el.textContent = lbl.text;
+  el.className = 'metric-change ' + lbl.cls;
+  if (mc) {
+    mc.classList.remove('up', 'down');
+    if (lbl.cls === 'up') mc.classList.add('up');
+    if (lbl.cls === 'down') mc.classList.add('down');
+  }
+  if (prevText) document.getElementById(id + 'Prev').textContent = prevText;
+}
+
+function v(id) { return document.getElementById(id).value; }
+
+function formatDateVI(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+// ===== KEYWORD ROWS =====
+function addKwRow(kw = '', curr = '', prev = '') {
+  const id = Date.now() + Math.random();
+  kwRows.push({ id, kw, curr, prev });
+  renderKwForm();
+}
+
+function removeKwRow(id) {
+  kwRows = kwRows.filter(r => r.id !== id);
+  renderKwForm();
+  update();
+}
+
+function renderKwForm() {
+  const tbody = document.getElementById('kwTableBody');
+  tbody.innerHTML = kwRows.map((r, i) => `
+    <tr>
+      <td><input type="text" placeholder="Từ khóa" value="${r.kw}" oninput="kwRows[${i}].kw=this.value;update()"></td>
+      <td><input type="number" placeholder="—" value="${r.curr}" oninput="kwRows[${i}].curr=this.value;update()" style="width:60px"></td>
+      <td><input type="number" placeholder="—" value="${r.prev}" oninput="kwRows[${i}].prev=this.value;update()" style="width:60px"></td>
+      <td><button class="btn-del-row" onclick="removeKwRow(${r.id})">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function rankBadge(r) {
+  const n = parseInt(r);
+  if (!r || isNaN(n)) return `<span class="rank-badge rank-other">—</span>`;
+  if (n <= 3) return `<span class="rank-badge rank-top3">#${n}</span>`;
+  if (n <= 10) return `<span class="rank-badge rank-top10">#${n}</span>`;
+  if (n <= 20) return `<span class="rank-badge rank-top20">#${n}</span>`;
+  return `<span class="rank-badge rank-other">#${n}</span>`;
+}
+
+function rankChange(curr, prev) {
+  const c = parseInt(curr), p = parseInt(prev);
+  if (isNaN(c) || isNaN(p)) return '<span class="rank-change same">—</span>';
+  const diff = p - c; // lower rank number = better
+  if (diff > 0) return `<span class="rank-change up">▲ +${diff}</span>`;
+  if (diff < 0) return `<span class="rank-change down">▼ ${diff}</span>`;
+  return '<span class="rank-change same">▶ 0</span>';
+}
+
+// ===== CHART =====
+function initChart(labels, data) {
+  const ctx = document.getElementById('clicksChart').getContext('2d');
+  if (clicksChart) { clicksChart.destroy(); }
+  clicksChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Clicks',
+        data: data,
+        backgroundColor: 'rgba(26,86,219,0.15)',
+        borderColor: '#1a56db',
+        borderWidth: 2,
+        borderRadius: 6,
+        type: 'bar'
+      }, {
+        label: 'Xu hướng',
+        data: data,
+        borderColor: '#f59e0b',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointBackgroundColor: '#f59e0b',
+        fill: false,
+        type: 'line',
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// ===== MAIN UPDATE =====
+function update() {
+  const typeMap = { weekly: 'TUẦN', monthly: 'THÁNG', quarterly: 'QUÝ' };
+  const rType = v('reportType');
+
+  // Header
+  document.getElementById('rBadge').textContent = 'BÁO CÁO ' + (typeMap[rType] || 'THÁNG');
+  const period = v('reportPeriodLabel') || 'Kỳ báo cáo';
+  document.getElementById('rPeriod').textContent = period;
+  const proj = v('projectName');
+  document.getElementById('rTitle').innerHTML = `Báo cáo SEO — <span id="rPeriod">${period}</span>`;
+  document.getElementById('rClient').textContent = proj || '—';
+  const url = v('projectUrl');
+  document.getElementById('rUrl').textContent = url ? 'Website: ' + url : '—';
+  document.getElementById('rAgency').textContent = v('agencyName') || '—';
+  const df = formatDateVI(v('dateFrom')), dt = formatDateVI(v('dateTo'));
+  document.getElementById('rDateRange').textContent = (df !== '—' && dt !== '—') ? `${df} – ${dt}` : '—';
+  document.getElementById('rGenDate').textContent = new Date().toLocaleDateString('vi-VN');
+
+  // Footer
+  document.getElementById('rFooterLeft').textContent = `${proj || 'Dự án'} — SEO Report ${period}`;
+  document.getElementById('rFooterRight').textContent = `© ${new Date().getFullYear()} ${v('agencyName') || 'SEO Agency'}`;
+
+  // Traffic
+  const clCurr = v('clicksCurr'), clPrev = v('clicksPrev');
+  setMetric('rClicks', 'mcClicks', clCurr ? fmt(clCurr) : '—', calcChange(clCurr, clPrev),
+    clPrev ? `Kỳ trước: ${fmt(clPrev)} clicks` : '');
+
+  const iCurr = v('impCurr'), iPrev = v('impPrev');
+  setMetric('rImp', 'mcImp', iCurr ? fmt(iCurr) : '—', calcChange(iCurr, iPrev),
+    iPrev ? `Kỳ trước: ${fmt(iPrev)} impressions` : '');
+
+  const cCurr = v('ctrCurr'), cPrev = v('ctrPrev');
+  setMetric('rCtr', 'mcCtr', cCurr ? fmtPct(cCurr) : '—', calcChange(cCurr, cPrev),
+    cPrev ? `Kỳ trước: ${fmtPct(cPrev)}` : '');
+
+  const pCurr = v('posCurr'), pPrev = v('posPrev');
+  setMetric('rPos', 'mcPos', pCurr ? fmtPos(pCurr) : '—', calcChange(pCurr, pPrev),
+    pPrev ? `Kỳ trước: ${fmtPos(pPrev)}` : '', true); // invert: lower pos = better
+
+  // Chart
+  const rawLabels = v('chartLabels').trim();
+  const rawClicks = v('chartClicks').trim();
+  if (rawLabels && rawClicks) {
+    const labels = rawLabels.split(',').map(s => s.trim());
+    const data = rawClicks.split(',').map(s => parseFloat(s.trim()) || 0);
+    initChart(labels, data);
+  } else if (!rawLabels && !rawClicks) {
+    // default demo
+    initChart(['T1','T2','T3','T4','T5','T6'], [0,0,0,0,0,0]);
+  }
+
+  // Keywords overview
+  const kwTotal = v('kwTotal'), kwTop10 = v('kwTop10'), kwTop10Prev = v('kwTop10Prev'), kwTop3 = v('kwTop3');
+  document.getElementById('rKwTotal').textContent = kwTotal ? fmt(kwTotal) : '—';
+  document.getElementById('rKwTop3').textContent = kwTop3 ? fmt(kwTop3) : '—';
+  document.getElementById('rKwTop10').textContent = kwTop10 ? fmt(kwTop10) : '—';
+
+  const top10Change = calcChange(kwTop10, kwTop10Prev);
+  const t10lbl = changeLabel(top10Change);
+  const t10el = document.getElementById('rKwTop10Change');
+  t10el.textContent = top10Change !== null ? t10lbl.text : '';
+  t10el.style.color = t10lbl.cls === 'up' ? 'var(--success)' : t10lbl.cls === 'down' ? 'var(--danger)' : 'var(--gray-400)';
+
+  const pct = (kwTotal && kwTop10) ? ((kwTop10 / kwTotal) * 100).toFixed(1) + '%' : '—';
+  document.getElementById('rKwPct').textContent = pct;
+
+  // Keyword table
+  const tbody = document.getElementById('rKwBody');
+  const emptyEl = document.getElementById('rKwEmpty');
+  const tblEl = document.getElementById('rKwTable');
+  if (kwRows.length === 0 || kwRows.every(r => !r.kw)) {
+    tbody.innerHTML = '';
+    emptyEl.style.display = 'block';
+    tblEl.style.display = 'none';
+  } else {
+    emptyEl.style.display = 'none';
+    tblEl.style.display = 'table';
+    tbody.innerHTML = kwRows.filter(r => r.kw).map((r, i) => `
+      <tr>
+        <td style="color:var(--gray-400);font-weight:600">${i + 1}</td>
+        <td style="font-weight:600">${r.kw}</td>
+        <td>${rankBadge(r.curr)}</td>
+        <td style="color:var(--gray-500)">${r.prev ? '#' + r.prev : '—'}</td>
+        <td>${rankChange(r.curr, r.prev)}</td>
+      </tr>
+    `).join('');
+  }
+
+  // Backlinks
+  const blT = v('blTotal'), blP = v('blPrev'), blN = v('blNew'), blL = v('blLost');
+  document.getElementById('rBlTotal').textContent = blT ? fmt(blT) : '—';
+  document.getElementById('rBlDomains').textContent = v('blDomains') ? fmt(v('blDomains')) : '—';
+  const da = v('blDA');
+  document.getElementById('rBlDA').textContent = da ? da : '—';
+  document.getElementById('rBlDABar').style.width = da ? Math.min(da, 100) + '%' : '0%';
+  document.getElementById('rBlNew').textContent = blN ? fmt(blN) : '—';
+  document.getElementById('rBlLost').textContent = blL ? fmt(blL) : '—';
+
+  const blChg = calcChange(blT, blP);
+  const blEl = document.getElementById('rBlChange');
+  if (blChg !== null) {
+    const lbl = changeLabel(blChg);
+    blEl.innerHTML = `<span style="font-weight:700;color:${lbl.cls==='up'?'var(--success)':lbl.cls==='down'?'var(--danger)':'var(--gray-400)'}">${lbl.text}</span><span style="color:var(--gray-400);margin-left:4px">vs kỳ trước</span>`;
+  } else { blEl.textContent = ''; }
+
+  // Notes
+  const sumTxt = v('summaryText');
+  const wdTxt = v('workDone');
+  const plTxt = v('planNext');
+  const sumBox = document.getElementById('rSummaryBox');
+  const wdBox = document.getElementById('rWorkDoneBox');
+  const plBox = document.getElementById('rPlanBox');
+  sumBox.style.display = sumTxt ? 'block' : 'none';
+  document.getElementById('rSummary').textContent = sumTxt;
+  wdBox.style.display = wdTxt ? 'block' : 'none';
+  document.getElementById('rWorkDone').textContent = wdTxt;
+  plBox.style.display = plTxt ? 'block' : 'none';
+  document.getElementById('rPlanNext').textContent = plTxt;
+}
+
+// ===== EXPORT PDF =====
+function exportPDF() {
+  const el = document.getElementById('report');
+  const proj = v('projectName') || 'SEO-Report';
+  const period = v('reportPeriodLabel') || 'report';
+  const filename = `${proj.replace(/[^a-zA-Z0-9À-ɏ]/g, '-')}_SEO_${period.replace(/[^a-zA-Z0-9À-ɏ]/g, '-')}.pdf`;
+
+  const opt = {
+    margin: 0,
+    filename: filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  html2pdf().set(opt).from(el).save();
+}
+
+// ===== CLEAR =====
+function clearForm() {
+  if (!confirm('Xóa toàn bộ dữ liệu đã nhập?')) return;
+  document.querySelectorAll('.sidebar input, .sidebar select, .sidebar textarea').forEach(el => {
+    if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = '';
+  });
+  kwRows = [];
+  renderKwForm();
+  update();
+}
+
+// ===== INIT =====
+window.addEventListener('DOMContentLoaded', () => {
+  // Pre-fill today's date range (current month)
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const firstDay = new Date(y, m, 1).toISOString().split('T')[0];
+  const lastDay = new Date(y, m + 1, 0).toISOString().split('T')[0];
+  document.getElementById('dateFrom').value = firstDay;
+  document.getElementById('dateTo').value = lastDay;
+  document.getElementById('reportPeriodLabel').value = `Tháng ${String(m+1).padStart(2,'0')}/${y}`;
+
+  // Add 3 default keyword rows
+  addKwRow('', '', '');
+  addKwRow('', '', '');
+  addKwRow('', '', '');
+
+  update();
+});
+</script>
+</body>
+</html>
